@@ -118,6 +118,8 @@ class BRATSDataset3D(torch.utils.data.Dataset):
         n = x // 155
         slice = x % 155
         filedict = self.database[n]
+        # import pdb
+        # pdb.set_trace()
         for seqtype in self.seqtypes:
             nib_img = nibabel.load(filedict[seqtype])
             path=filedict[seqtype]

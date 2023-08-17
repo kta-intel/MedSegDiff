@@ -65,6 +65,8 @@ def main():
         shuffle=True)
     data = iter(datal)
 
+    print(args.batch_size)
+
     logger.log("creating model and diffusion...")
 
     model, diffusion = create_model_and_diffusion(
@@ -141,7 +143,8 @@ def main():
 
                 sample, x_noisy, org, cal, cal_out = sample_fn(
                     model,
-                    (args.batch_size, 3, args.image_size, args.image_size), img,
+                    (args.batch_size, args.in_ch, args.image_size, args.image_size), img,
+                    # (args.batch_size, 3, args.image_size, args.image_size), img,
                     step = args.diffusion_steps,
                     clip_denoised=args.clip_denoised,
                     model_kwargs=model_kwargs,
