@@ -12,6 +12,7 @@ sys.path.append(".")
 import numpy as np
 import time
 import torch as th
+import intel_extension_for_pytorch as ipex
 from PIL import Image
 import torch.distributed as dist
 from guided_diffusion import dist_util, logger
@@ -30,7 +31,7 @@ import torchvision.transforms as transforms
 from torchsummary import summary
 seed=10
 th.manual_seed(seed)
-th.cuda.manual_seed_all(seed)
+# th.cuda.manual_seed_all(seed)
 np.random.seed(seed)
 random.seed(seed)
 
@@ -43,7 +44,7 @@ def visualize(img):
 
 def main():
     args = create_argparser().parse_args()
-    dist_util.setup_dist(args)
+    # dist_util.setup_dist(args)
     logger.configure(dir = args.out_dir)
 
     if args.data_name == 'ISIC':
@@ -72,23 +73,31 @@ def main():
     all_images = []
 
 
-    state_dict = dist_util.load_state_dict(args.model_path, map_location="cpu")
-    from collections import OrderedDict
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        # name = k[7:] # remove `module.`
-        if 'module.' in k:
-            new_state_dict[k[7:]] = v
-            # load params
-        else:
-            new_state_dict = state_dict
+    ######################
+    # state_dict = dist_util.load_state_dict(args.model_path, map_location="cpu")
+    # from collections import OrderedDict
+    # new_state_dict = OrderedDict()
+    # for k, v in state_dict.items():
+    #     # name = k[7:] # remove `module.`
+    #     if 'module.' in k:
+    #         new_state_dict[k[7:]] = v
+    #         # load params
+    #     else:
+    #         new_state_dict = state_dict
 
-    model.load_state_dict(new_state_dict)
+    # model.load_state_dict(new_state_dict)
+    ######################
 
-    model.to(dist_util.dev())
+
+
+    # model.to(dist_util.dev())
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
+
+    # model = ipex.optimize(model)
+    model = ipex.optimize(model, dtype=th.bfloat16)
+
     for _ in range(len(data)):
         b, m, path = next(data)  #should return an image from the dataloader "data"
         c = th.randn_like(b[:, :1, ...])
@@ -101,27 +110,47 @@ def main():
 
         logger.log("sampling...")
 
-        start = th.cuda.Event(enable_timing=True)
-        end = th.cuda.Event(enable_timing=True)
+        # start = th.cuda.Event(enable_timing=True)
+        # end = th.cuda.Event(enable_timing=True)
         enslist = []
 
         for i in range(args.num_ensemble):  #this is for the generation of an ensemble of 5 masks.
             model_kwargs = {}
-            start.record()
+            import time
+            start_time = time.time()
+
+            print("sample " + str(i))
+
+            # import pdb
+            # pdb.set_trace()
+
+            # start.record()
             sample_fn = (
                 diffusion.p_sample_loop_known if not args.use_ddim else diffusion.ddim_sample_loop_known
             )
-            sample, x_noisy, org, cal, cal_out = sample_fn(
-                model,
-                (args.batch_size, 3, args.image_size, args.image_size), img,
-                step = args.diffusion_steps,
-                clip_denoised=args.clip_denoised,
-                model_kwargs=model_kwargs,
-            )
 
-            end.record()
-            th.cuda.synchronize()
-            print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
+            # import pdb
+            # pdb.set_trace()
+
+            with th.no_grad(), th.cpu.amp.autocast():
+            #     model = th.jit.trace(model, [img, th.rand(1)])
+            #     model = th.jit.freeze(model)
+
+                # import pdb
+                # pdb.set_trace()
+
+                sample, x_noisy, org, cal, cal_out = sample_fn(
+                    model,
+                    (args.batch_size, 3, args.image_size, args.image_size), img,
+                    step = args.diffusion_steps,
+                    clip_denoised=args.clip_denoised,
+                    model_kwargs=model_kwargs,
+                )
+
+            print("--- %s seconds ---" % (time.time() - start_time))
+            # end.record()
+            # th.cuda.synchronize()
+            # print('time for 1 sample', start.elapsed_time(end))  #time measurement for the generation of 1 sample
 
             co = th.tensor(cal_out)
             if args.version == 'new':
@@ -151,7 +180,8 @@ def main():
                     tup = (ss,o,c)
                 elif args.data_name == 'BRATS':
                     s = th.tensor(sample)[:,-1,:,:].unsqueeze(1)
-                    m = th.tensor(m.to(device = 'cuda:0'))[:,0,:,:].unsqueeze(1)
+                    m = th.tensor(m.to('cpu'))[:,0,:,:].unsqueeze(1)
+                    # m = th.tensor(m.to(device = 'cuda:0'))[:,0,:,:].unsqueeze(1)
                     o1 = th.tensor(org)[:,0,:,:].unsqueeze(1)
                     o2 = th.tensor(org)[:,1,:,:].unsqueeze(1)
                     o3 = th.tensor(org)[:,2,:,:].unsqueeze(1)
@@ -162,6 +192,7 @@ def main():
 
                 compose = th.cat(tup,0)
                 vutils.save_image(compose, fp = os.path.join(args.out_dir, str(slice_ID)+'_output'+str(i)+".jpg"), nrow = 1, padding = 10)
+
         ensres = staple(th.stack(enslist,dim=0)).squeeze(0)
         vutils.save_image(ensres, fp = os.path.join(args.out_dir, str(slice_ID)+'_output_ens'+".jpg"), nrow = 1, padding = 10)
 

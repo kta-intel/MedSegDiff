@@ -76,6 +76,7 @@ class TrainLoop:
 
         self.step = 0
         self.resume_step = 0
+        # self.global_batch = self.batch_size * dist.get_world_size()
         self.global_batch = self.batch_size * dist.get_world_size()
 
         self.sync_cuda = th.cuda.is_available()
@@ -90,6 +91,10 @@ class TrainLoop:
         self.opt = AdamW(
             self.mp_trainer.master_params, lr=self.lr, weight_decay=self.weight_decay
         )
+
+        import intel_extension_for_pytorch as ipex
+        self.model, self.opt = ipex.optimize(self.model, optimizer=self.opt)
+
         if self.resume_step:
             self._load_optimizer_state()
             # Model was resumed, either due to a restart or a checkpoint

@@ -174,6 +174,9 @@ def create_model(
     for res in attention_resolutions.split(","):
         attention_ds.append(image_size // int(res))
 
+    # import pdb
+    # pdb.set_trace()
+
     return UNetModel_newpreview(
         image_size=image_size,
         in_channels=in_ch,
