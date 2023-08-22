@@ -10,3 +10,4 @@ batchgenerators
 visdom
 torchsummary
 torchvision
+segmentation_mask_overlay
