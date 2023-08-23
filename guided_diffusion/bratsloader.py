@@ -5,6 +5,7 @@ import os
 import os.path
 import nibabel
 import torchvision.utils as vutils
+import torchvision.transforms as transforms
 
 
 # class BRATSDataset(torch.utils.data.Dataset):
@@ -134,17 +135,25 @@ class BRATSDataset3D_midslice(torch.utils.data.Dataset):
                 image = self.transform(image)
             return (image, image, path.split('.nii')[0] + ".nii") # virtual path
         else:
-
             image = out[:-1, ...]
             label = out[-1, ...][None, ...]
             # image = image[..., 8:-8, 8:-8]      #crop to a size of (224, 224)
             # label = label[..., 8:-8, 8:-8]
             label=torch.where(label > 0, 1, 0).float()  #merge all tumor classes into one
             if self.transform:
+                # m, s = torch.mean(image, axis=(1, 2)), torch.std(image, axis=(1, 2))
+                # preprocess = transforms.Compose([
+                #     transforms.Normalize(mean=m, std=s),
+                # ])
+                
                 state = torch.get_rng_state()
                 image = self.transform(image)
+                # image = preprocess(image)
                 torch.set_rng_state(state)
                 label = self.transform(label)
+                # import pdb
+                # pdb.set_trace()
+
             return (image, label, path.split('.nii')[0] + ".nii") # virtual path
 
 

@@ -42,19 +42,40 @@ class no_op(object):
     def __exit__(self, *args):
         pass
 
-def staple(a):
-    # a: n,c,h,w detach tensor
-    mvres = mv(a)
-    gap = 0.4
-    if gap > 0.02:
-        for i, s in enumerate(a):
-            r = s * mvres
-            res = r if i == 0 else torch.cat((res,r),0)
-        nres = mv(res)
-        gap = torch.mean(torch.abs(mvres - nres))
-        mvres = nres
-        a = res
-    return mvres
+# def staple(a):
+#     # a: n,c,h,w detach tensor
+#     mvres = mv(a)
+#     gap = 0.4
+#     if gap > 0.02:
+#         for i, s in enumerate(a):
+#             r = s * mvres
+#             res = r if i == 0 else torch.cat((res,r),0)
+#         nres = mv(res)
+#         gap = torch.mean(torch.abs(mvres - nres))
+#         mvres = nres
+#         a = res
+#     return mvres
+
+def staple(a, args):
+    from .unet_parts import BasicUNet
+    model = BasicUNet(n_channels=4, n_classes=1)
+    checkpoint = torch.load('model.pth')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    
+    if args.ipex:
+        import intel_extension_for_pytorch as ipex
+        print("Intel(R) Extension for PyTorch* enabled")
+        if args.bf16:
+            print("BF16 enabled")
+            model = ipex.optimize(model, dtype=torch.bfloat16)
+            with torch.no_grad(), torch.cpu.amp.autocast():
+                return model(a.to(torch.float32))
+        else:
+            model = ipex.optimize(model)
+            return model(a.to(torch.float32))
+    else:
+        return model(a.to(torch.float32))
 
 def allone(disc,cup):
     disc = np.array(disc) / 255
@@ -92,3 +113,18 @@ def export(tar, img_path=None):
 def norm(t):
     m, s, v = torch.mean(t), torch.std(t), torch.var(t)
     return (t - m) / s
+
+def visualize(b, m, args, slice_ID):
+    image_0 = b[0, 0].squeeze().cpu().numpy()
+    image_1 = b[0, 1].squeeze().cpu().numpy()
+    image_2 = b[0, 2].squeeze().cpu().numpy()
+    image_3 = b[0, 3].squeeze().cpu().numpy()
+    mask = m.squeeze().cpu().numpy()
+
+    import matplotlib.pyplot as plt
+    import matplotlib.image
+    matplotlib.image.imsave(os.path.join(args.out_dir, "t1_" + str(slice_ID)+ ".jpg"), image_0)
+    matplotlib.image.imsave(os.path.join(args.out_dir, "t1ce_" + str(slice_ID)+ ".jpg"), image_1)
+    matplotlib.image.imsave(os.path.join(args.out_dir, "t2_" + str(slice_ID)+ ".jpg"), image_2)
+    matplotlib.image.imsave(os.path.join(args.out_dir, "flair_" + str(slice_ID)+ ".jpg"), image_3)
+    matplotlib.image.imsave(os.path.join(args.out_dir, str(slice_ID)+ ".jpg"), mask)
