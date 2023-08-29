@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
     import time
     
-    checkpoint = torch.load('model_nonnormalized_128.pth')
+    checkpoint = torch.load('model_nonnormalized.pth')
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     
