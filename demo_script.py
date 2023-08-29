@@ -101,7 +101,7 @@ def main():
             enslist.append(co)
 
     ensres = staple(img, args)
-    visualize(img, ensres, args, slice_ID)
+    visualize(img, ensres, args, slice_ID[0])
     # ensres = staple(th.stack(enslist,dim=0)).squeeze(0)
     # vutils.save_image(ensres, fp = os.path.join(args.out_dir, str(slice_ID)+'_output_ens'+".jpg"), nrow = 1, padding = 10)
     

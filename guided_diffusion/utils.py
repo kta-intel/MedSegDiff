@@ -3,6 +3,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
+import matplotlib.pyplot as plt
+from scipy import ndimage
+from segmentation_mask_overlay import overlay_masks
 
 
 softmax_helper = lambda x: F.softmax(x, 1)
@@ -114,17 +118,101 @@ def norm(t):
     m, s, v = torch.mean(t), torch.std(t), torch.var(t)
     return (t - m) / s
 
-def visualize(b, m, args, slice_ID):
-    image_0 = b[0, 0].squeeze().cpu().numpy()
-    image_1 = b[0, 1].squeeze().cpu().numpy()
-    image_2 = b[0, 2].squeeze().cpu().numpy()
-    image_3 = b[0, 3].squeeze().cpu().numpy()
-    mask = m.squeeze().cpu().numpy()
 
-    import matplotlib.pyplot as plt
-    import matplotlib.image
-    matplotlib.image.imsave(os.path.join(args.out_dir, "t1_" + str(slice_ID)+ ".jpg"), image_0)
-    matplotlib.image.imsave(os.path.join(args.out_dir, "t1ce_" + str(slice_ID)+ ".jpg"), image_1)
-    matplotlib.image.imsave(os.path.join(args.out_dir, "t2_" + str(slice_ID)+ ".jpg"), image_2)
-    matplotlib.image.imsave(os.path.join(args.out_dir, "flair_" + str(slice_ID)+ ".jpg"), image_3)
-    matplotlib.image.imsave(os.path.join(args.out_dir, str(slice_ID)+ ".jpg"), mask)
+def visualize(b, m=None, gt=False, ipex=False):
+    image_0 = ndimage.rotate(b[0, 0].squeeze().cpu().numpy(), -90)
+    image_1 = ndimage.rotate(b[0, 1].squeeze().cpu().numpy(), -90)
+    image_2 = ndimage.rotate(b[0, 2].squeeze().cpu().numpy(), -90)
+    image_3 = ndimage.rotate(b[0, 3].squeeze().cpu().numpy(), -90)
+    
+    if m is not None:
+        if not gt:
+            from guided_diffusion.unet_parts import BasicUNet
+            model = BasicUNet(n_channels=4, n_classes=1)
+            checkpoint = torch.load('model_nonnormalized.pth', map_location=torch.device('cpu'))
+            model.load_state_dict(checkpoint['model_state_dict'])
+            model.eval()
+            m = F.sigmoid(model(b.to(torch.float32))).detach()
+            
+        mask = ndimage.rotate(m.squeeze().cpu().numpy(), -90)
+        mask[mask > (mask.max() + mask.min())/2] = 1
+        mask[mask != 1] = 0
+        
+        image_0 = overlay_masks(image_0, mask, colors = 'r', beta = .8, return_type="numpy")
+        image_1 = overlay_masks(image_1, mask, colors = 'r', beta = .8, return_type="numpy")
+        image_2 = overlay_masks(image_2, mask, colors = 'r', beta = .8, return_type="numpy")
+        image_3 = overlay_masks(image_3, mask, colors = 'r', beta = .8, return_type="numpy")
+        
+    plt.figure(figsize=(8, 4))
+
+    plt.subplot(1, 4, 1)
+    plt.imshow(image_0, cmap='gray')
+    plt.title("t1")
+    plt.axis('off')
+
+    plt.subplot(1, 4, 2)
+    plt.imshow(image_1, cmap='gray')
+    plt.title("t1ce")
+    plt.axis('off')
+
+    plt.subplot(1, 4, 3)
+    plt.imshow(image_2, cmap='gray')
+    plt.title("t2")
+    plt.axis('off')
+
+    plt.subplot(1, 4, 4)
+    plt.imshow(image_3, cmap='gray')
+    plt.title("flair")
+    plt.axis('off')
+
+    plt.tight_layout()  # Ensure proper spacing between subplots
+    plt.show()
+            
+    # import matplotlib.pyplot as plt
+    # import matplotlib.image
+    # matplotlib.image.imsave(os.path.join(args.out_dir, "t1_" + str(slice_ID)+ ".jpg"), image_0)
+    # matplotlib.image.imsave(os.path.join(args.out_dir, "t1ce_" + str(slice_ID)+ ".jpg"), image_1)
+    # matplotlib.image.imsave(os.path.join(args.out_dir, "t2_" + str(slice_ID)+ ".jpg"), image_2)
+    # matplotlib.image.imsave(os.path.join(args.out_dir, "flair_" + str(slice_ID)+ ".jpg"), image_3)
+    # matplotlib.image.imsave(os.path.join(args.out_dir, str(slice_ID)+ ".jpg"), mask)
+    
+
+def dice_coeff(input: Tensor, target: Tensor, reduce_batch_first: bool = False, epsilon: float = 1e-6):
+    # Average of Dice coefficient for all batches, or for a single mask
+    assert input.size() == target.size()
+    assert input.dim() == 3 or not reduce_batch_first
+
+    sum_dim = (-1, -2) if input.dim() == 2 or not reduce_batch_first else (-1, -2, -3)
+
+    inter = 2 * (input * target).sum(dim=sum_dim)
+    sets_sum = input.sum(dim=sum_dim) + target.sum(dim=sum_dim)
+    sets_sum = torch.where(sets_sum == 0, inter, sets_sum)
+
+    dice = (inter + epsilon) / (sets_sum + epsilon)
+    return dice.mean()
+
+
+def calculate_dice(input: Tensor, target: Tensor, reduce_batch_first: bool = False, epsilon: float = 1e-6):
+    # Average of Dice coefficient for all batches, or for a single mask
+    assert input.size() == target.size()
+    assert input.dim() == 3 or not reduce_batch_first
+
+    sum_dim = (-1, -2) if input.dim() == 2 or not reduce_batch_first else (-1, -2, -3)
+
+    inter = 2 * (input * target).sum(dim=sum_dim)
+    sets_sum = input.sum(dim=sum_dim) + target.sum(dim=sum_dim)
+    sets_sum = torch.where(sets_sum == 0, inter, sets_sum)
+
+    dice = (inter + epsilon) / (sets_sum + epsilon)
+    return dice.mean()
+
+
+def multiclass_dice_coeff(input: Tensor, target: Tensor, reduce_batch_first: bool = False, epsilon: float = 1e-6):
+    # Average of Dice coefficient for all classes
+    return dice_coeff(input.flatten(0, 1), target.flatten(0, 1), reduce_batch_first, epsilon)
+
+
+def dice_loss(input: Tensor, target: Tensor, multiclass: bool = False):
+    # Dice loss (objective to minimize) between 0 and 1
+    fn = multiclass_dice_coeff if multiclass else dice_coeff
+    return 1 - fn(input, target, reduce_batch_first=False)

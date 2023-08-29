@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python demo_script.py \
+ipexrun demo_script.py \
     --data_name BRATS \
     --data_dir data/MICCAI_BraTS2020_TrainingData/BraTS20_Training_001 \
     --out_dir outputs \
@@ -16,4 +16,7 @@ python demo_script.py \
     --noise_schedule linear \
     --rescale_learned_sigmas False \
     --rescale_timesteps False \
-    --num_ensemble 5
+    --num_ensemble 5 \
+    --version 1 \
+    --ipex True \
+    --bf16 True
