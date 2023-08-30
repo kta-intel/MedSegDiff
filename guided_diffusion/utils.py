@@ -46,40 +46,40 @@ class no_op(object):
     def __exit__(self, *args):
         pass
 
-# def staple(a):
-#     # a: n,c,h,w detach tensor
-#     mvres = mv(a)
-#     gap = 0.4
-#     if gap > 0.02:
-#         for i, s in enumerate(a):
-#             r = s * mvres
-#             res = r if i == 0 else torch.cat((res,r),0)
-#         nres = mv(res)
-#         gap = torch.mean(torch.abs(mvres - nres))
-#         mvres = nres
-#         a = res
-#     return mvres
+def staple(a):
+    # a: n,c,h,w detach tensor
+    mvres = mv(a)
+    gap = 0.4
+    if gap > 0.02:
+        for i, s in enumerate(a):
+            r = s * mvres
+            res = r if i == 0 else torch.cat((res,r),0)
+        nres = mv(res)
+        gap = torch.mean(torch.abs(mvres - nres))
+        mvres = nres
+        a = res
+    return mvres
 
-def staple(a, args):
-    from .unet_parts import BasicUNet
-    model = BasicUNet(n_channels=4, n_classes=1)
-    checkpoint = torch.load('model.pth')
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
-    
-    if args.ipex:
+def post_process(sample):
+    img = sample['image']
+    from guided_diffusion.unet_parts import BasicUNet
+    seg = BasicUNet(n_channels=4, n_classes=1)
+    checkpoint = torch.load('model_nonnormalized.pth')
+    seg.load_state_dict(checkpoint['model_state_dict'])
+    seg.eval()
+
+    if sample['ipex']:
         import intel_extension_for_pytorch as ipex
-        print("Intel(R) Extension for PyTorch* enabled")
-        if args.bf16:
-            print("BF16 enabled")
-            model = ipex.optimize(model, dtype=torch.bfloat16)
+        if sample['bf16']:
+            seg = ipex.optimize(seg, dtype=torch.bfloat16)
             with torch.no_grad(), torch.cpu.amp.autocast():
-                return model(a.to(torch.float32))
+                return F.sigmoid(seg(img[:,:4].to(torch.float32)))
         else:
-            model = ipex.optimize(model)
-            return model(a.to(torch.float32))
+            seg = ipex.optimize(seg)
+            return F.sigmoid(seg(img[:,:4].to(torch.float32))).detach()
     else:
-        return model(a.to(torch.float32))
+        return F.sigmoid(seg(img[:,:4].to(torch.float32))).detach()
+            
 
 def allone(disc,cup):
     disc = np.array(disc) / 255
@@ -119,20 +119,21 @@ def norm(t):
     return (t - m) / s
 
 
-def visualize(b, m=None, gt=False, ipex=False):
+# def visualize(b, m=None, gt=False, ipex=False):
+def visualize(b, m=None):
     image_0 = ndimage.rotate(b[0, 0].squeeze().cpu().numpy(), -90)
     image_1 = ndimage.rotate(b[0, 1].squeeze().cpu().numpy(), -90)
     image_2 = ndimage.rotate(b[0, 2].squeeze().cpu().numpy(), -90)
     image_3 = ndimage.rotate(b[0, 3].squeeze().cpu().numpy(), -90)
     
     if m is not None:
-        if not gt:
-            from guided_diffusion.unet_parts import BasicUNet
-            model = BasicUNet(n_channels=4, n_classes=1)
-            checkpoint = torch.load('model_nonnormalized.pth', map_location=torch.device('cpu'))
-            model.load_state_dict(checkpoint['model_state_dict'])
-            model.eval()
-            m = F.sigmoid(model(b.to(torch.float32))).detach()
+        # if not gt:
+        #     from guided_diffusion.unet_parts import BasicUNet
+        #     model = BasicUNet(n_channels=4, n_classes=1)
+        #     checkpoint = torch.load('model_nonnormalized.pth', map_location=torch.device('cpu'))
+        #     model.load_state_dict(checkpoint['model_state_dict'])
+        #     model.eval()
+        #     m = F.sigmoid(model(b.to(torch.float32))).detach()
             
         mask = ndimage.rotate(m.squeeze().cpu().numpy(), -90)
         mask[mask > (mask.max() + mask.min())/2] = 1
@@ -192,15 +193,15 @@ def dice_coeff(input: Tensor, target: Tensor, reduce_batch_first: bool = False, 
     return dice.mean()
 
 
-def calculate_dice(pred, m, b):
-    from guided_diffusion.unet_parts import BasicUNet
-    model = BasicUNet(n_channels=4, n_classes=1)
-    checkpoint = torch.load('model_nonnormalized.pth', map_location=torch.device('cpu'))
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
-    m_pred = F.sigmoid(model(b.to(torch.float32)))
+# def calculate_dice(pred, m, b):
+#     from guided_diffusion.unet_parts import BasicUNet
+#     model = BasicUNet(n_channels=4, n_classes=1)
+#     checkpoint = torch.load('model_nonnormalized.pth', map_location=torch.device('cpu'))
+#     model.load_state_dict(checkpoint['model_state_dict'])
+#     model.eval()
+#     m_pred = F.sigmoid(model(b.to(torch.float32)))
     
-    return (dice_coeff(m_pred, m.int())*100).item()
+#     return (dice_coeff(m_pred, m.int())*100).item()
 
 
 def multiclass_dice_coeff(input: Tensor, target: Tensor, reduce_batch_first: bool = False, epsilon: float = 1e-6):
