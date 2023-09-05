@@ -64,7 +64,7 @@ def post_process(sample):
     img = sample['image']
     from guided_diffusion.unet_parts import BasicUNet
     seg = BasicUNet(n_channels=4, n_classes=1)
-    checkpoint = torch.load('model_nonnormalized.pth')
+    checkpoint = torch.load('weights/model.pth')
     seg.load_state_dict(checkpoint['model_state_dict'])
     seg.eval()
 
@@ -176,6 +176,8 @@ def visualize(b, m=None):
     # matplotlib.image.imsave(os.path.join(args.out_dir, "t2_" + str(slice_ID)+ ".jpg"), image_2)
     # matplotlib.image.imsave(os.path.join(args.out_dir, "flair_" + str(slice_ID)+ ".jpg"), image_3)
     # matplotlib.image.imsave(os.path.join(args.out_dir, str(slice_ID)+ ".jpg"), mask)
+    
+    return image_0, image_1, image_2, image_3
     
 
 def dice_coeff(input: Tensor, target: Tensor, reduce_batch_first: bool = False, epsilon: float = 1e-6):
