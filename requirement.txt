@@ -1,6 +1,5 @@
-python>=3.6
-pytorch>=1.8
 numpy
+matplotlib
 pandas
 blobfile
 nibabel
@@ -8,5 +7,8 @@ opencv-python
 scikit-image
 matplotlib
 batchgenerators
-visdom
-torchsummary
+segmentation_mask_overlay
+intel_extension_for_pytorch
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision

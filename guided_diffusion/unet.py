@@ -1413,6 +1413,9 @@ class SegmentationNetwork(NeuralNetwork):
 
         assert len(x.shape) == 4, "data must have shape (c,x,y,z)"
 
+        import pdb
+        pdb.set_trace()
+
         if mixed_precision:
             context = autocast
         else:
@@ -1471,6 +1474,9 @@ class SegmentationNetwork(NeuralNetwork):
             print('WARNING! Network is in train mode during inference. This may be intended, or not...')
 
         assert len(x.shape) == 3, "data must have shape (c,x,y)"
+
+        import pdb
+        pdb.set_trace()
 
         if mixed_precision:
             context = autocast

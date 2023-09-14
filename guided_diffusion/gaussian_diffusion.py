@@ -3,6 +3,7 @@ This code started out as a PyTorch port of Ho et al's diffusion models:
 https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/diffusion_utils_2.py
 Docstrings have been added, as well as DDIM sampling and a new collection of beta schedules.
 """
+from turtle import xcor
 from torch.autograd import Variable
 import enum
 import torch.nn.functional as F
@@ -269,6 +270,10 @@ class GaussianDiffusion:
         C=1
         cal = 0
         assert t.shape == (B,)
+
+        # import pdb
+        # pdb.set_trace()
+
         model_output = model(x, self._scale_timesteps(t), **model_kwargs)
         if isinstance(model_output, tuple):
             model_output, cal = model_output
@@ -507,6 +512,7 @@ class GaussianDiffusion:
         model,
         shape,
         img,
+        optimization='Intel(R) Extension for PyTorch*',
         step = 1000,
         org=None,
         noise=None,
@@ -555,7 +561,7 @@ class GaussianDiffusion:
 
             cal_out = torch.clamp(final["cal"] + 0.25 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
         else:
-            print('no dpm-solver')
+            # print('no dpm-solver')
             i = 0
             letters = string.ascii_lowercase
             name = ''.join(random.choice(letters) for i in range(10)) 
@@ -573,26 +579,46 @@ class GaussianDiffusion:
                 progress=progress,
             ):
                 final = sample
-                # i += 1
-                # '''vis each step sample'''
-                # if i % 5 == 0:
-
-                #     o1 = th.tensor(img)[:,0,:,:].unsqueeze(1)
-                #     o2 = th.tensor(img)[:,1,:,:].unsqueeze(1)
-                #     o3 = th.tensor(img)[:,2,:,:].unsqueeze(1)
-                #     o4 = th.tensor(img)[:,3,:,:].unsqueeze(1)
-                #     s = th.tensor(final["sample"])[:,-1,:,:].unsqueeze(1)
-                #     tup = (o1/o1.max(),o2/o2.max(),o3/o3.max(),o4/o4.max(),s)
-                #     compose = th.cat(tup,0)
-                #     vutils.save_image(s, fp = os.path.join('../res_temp_norm_6000_100', name+str(i)+".jpg"), nrow = 1, padding = 10)
-
+                
             if dice_score(final["sample"][:,-1,:,:].unsqueeze(1), final["cal"]) < 0.65:
                 cal_out = torch.clamp(final["cal"] + 0.25 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
             else:
-                cal_out = torch.clamp(final["cal"] * 0.5 + 0.5 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)
+                cal_out = torch.clamp(final["cal"] * 0.5 + 0.5 * final["sample"][:,-1,:,:].unsqueeze(1), 0, 1)  
             
+            # i += 1
+            # '''vis each step sample'''
+            # if i % 5 == 0:
 
-        return final["sample"], x_noisy, img, final["cal"], cal_out
+            #     o1 = th.tensor(img)[:,0,:,:].unsqueeze(1)
+            #     o2 = th.tensor(img)[:,1,:,:].unsqueeze(1)
+            #     o3 = th.tensor(img)[:,2,:,:].unsqueeze(1)
+            #     o4 = th.tensor(img)[:,3,:,:].unsqueeze(1)
+            #     s = th.tensor(final["sample"])[:,-1,:,:].unsqueeze(1)
+            #     tup = (o1/o1.max(),o2/o2.max(),o3/o3.max(),o4/o4.max(),s)
+            #     compose = th.cat(tup,0)
+            #     vutils.save_image(s, fp = os.path.join('../res_temp_norm_6000_100', name+str(i)+".jpg"), nrow = 1, padding = 10)
+            
+            # return final["sample"], x_noisy, img, final["cal"], cal_out
+            
+            # if ipex_enabled:
+            #     import intel_extension_for_pytorch as ipex
+            #     if bf16:
+            #         seg = ipex.optimize(seg, dtype=torch.bfloat16)
+            #         with torch.no_grad(), torch.cpu.amp.autocast():
+            #             return F.sigmoid(seg(img[:,:4].to(torch.float32))), x_noisy, img, final["cal"], cal_out
+            #     else:
+            #         seg = ipex.optimize(seg)
+            #         return F.sigmoid(seg(img[:,:4].to(torch.float32))).detach(), x_noisy, img, final["cal"], cal_out
+            # else:
+            #     return F.sigmoid(seg(img[:,:4].to(torch.float32))).detach(), x_noisy, img, final["cal"], cal_out
+
+            final = {
+              "image": img,
+              "optimization": optimization
+            }
+            
+            return final, x_noisy, img, final, cal_out
+            
 
     def p_sample_loop_progressive(
         self,
