@@ -184,4 +184,5 @@ Performance varies by use, configuration and other factors. Learn more at www.In
   
     
 
-demo.launch(share=True)
+# demo.launch(share=True)
+demo.queue(api_open=False, max_size=5).launch(auth=("tce", "intel@123"), server_name="0.0.0.0", server_port=65535)
