@@ -109,25 +109,32 @@ def segment_tumor(input_img, optimization):
 
 with gr.Blocks(theme='Taithrah/Minimal') as demo:
     gr.Markdown("""
-    # <p style="text-align: center;"> ACCELERATE DIFFUSION MODELS FOR MEDICAL SEGMENTATION </p>
+    # <p style="text-align: center;"> ACCELERATE DIFFUSION MODELS FOR MEDICAL IMAGE SEGMENTATION </p>
     ## <p style="text-align: center;"> USING INTEL® AI OPTIMIZATIONS </p>
     """)
     with gr.Row():
         with gr.Column():
-            input_img = gr.Dropdown(['BraTS20_001', 
-                                     'BraTS20_002',
-                                     'BraTS20_003',
-                                     'BraTS20_004',
-                                     'BraTS20_005',
-                                     'BraTS20_006',
-                                     'BraTS20_007',
-                                     'BraTS20_008',
-                                     'BraTS20_009',
-                                     'BraTS20_010'], label="Input Image")
+            input_img = gr.Dropdown(['IM_001', 
+                                     'IM_002',
+                                     'IM_003',
+                                     'IM_004',
+                                     'IM_005',
+                                     'IM_006',
+                                     'IM_007',
+                                     'IM_008',
+                                     'IM_009',
+                                     'IM_010'], label="Input Image")
             optimization = gr.Dropdown(['Stock PyTorch*',
                                         # 'Stock PyTorch* (BF16)', 
                                         'Intel(R) Extension for PyTorch*'], label="Optimization")
             segment_btn = gr.Button(value="Segment")
+
+            gr.Markdown("""
+                        | Intel(R) Extension for PyTorch* | Intel(R) Advanced Matrix Extensions |
+                        | :-----------------------------: | :---------------------------------: |
+                        | <center>![](file/IPEX.png)</center>  | <center>![](file/amx.png)</center> |
+                        """)
+            
         with gr.Column():
             output_img = gallery = gr.Gallery(label="Tumor Segmentation Prediction", 
                                               show_download_button=False,
@@ -139,12 +146,11 @@ with gr.Blocks(theme='Taithrah/Minimal') as demo:
             
     with gr.Accordion("Additional details", open=False):
         gr.Markdown("""
-        This tool is intended for demonstration purposes only and does not provide medical advice or information.  
-        The model used in this demonstration is a replication of the cited work and not the original model. We make no explicit claims regarding performance or accuracy numbers.  
+        The model used in this demonstration is a replication of the cited work and not the original model. Accuracy and performance does not reflect the published material. Results may vary.  
         <br/>
-        Hardware Configuration: Intel(R) Xeon(R) Platinum 8488C (Utilize Intel® AMX and Intel® AVX-512 to accelerate AI). Amazon Web Services EC2 m7i.xlarge  
+        Hardware Configuration: 4th Gen Intel(R) Xeon(R) Scalable: 1-node, 1x Intel(R) Xeon(R) Platinum 8488C. Ubuntu 22.04.2 LTS, Linux Kernel 6.2.0-1011-aws. AWS EC2 m7i.xlarge.  
         <br/>
-        Software Configuration: PyTorch 2.0.1+cpu, Intel(R) Extension for PyTorch* 2.0.100+cpu,   
+        Software Configuration: PyTorch 2.0.1+cpu, Intel(R) Extension for PyTorch* 2.0.100+cpu   
         <br/>
         **MedSegDiff**  
         J. Wu, H. Fang, Y. Zhang, Y. Yang, and Y. Xu, *MedSegDiff: Medical Image Segmentation with Diffusion Probabilistic Model*, Proceedings of Machine Learning Research – nnn:1–17, 2023 [[Code](https://github.com/WuJunde/MedSegDiff), [Paper](https://openreview.net/pdf?id=Jdw-cm2jG9)]  
@@ -157,6 +163,16 @@ with gr.Blocks(theme='Taithrah/Minimal') as demo:
         S. Bakas, H. Akbari, A. Sotiras, M. Bilello, M. Rozycki, J. Kirby, et al.,(opens in a new window) "Segmentation Labels and Radiomic Features for the Pre-operative Scans of the TCGA-LGG collection", The Cancer Imaging Archive, 2017. DOI: 10.7937/K9/TCIA.2017.GJQ7R0EF
 
         """) 
+
+    gr.Markdown("""
+### Notices & Disclaimers:  
+
+This tool is intended for demonstration purposes only and does not provide medical advice. It is not a substitute for professional medical diagnosis, advice, or treatment. Do not disregard professional medical advice in seeking treatment because of something you see in this demo or from the underlying implementation. If you think you are experiencing a medical event, immediately call your doctor or emergency services.  
+
+This tool is not intended for use which could create obligations under HIPAA, Intel is not a Covered Entity under HIPAA and Intel makes no representations that the demonstration of some capabilities of this tool satisfy HIPAA requirements. If you are (or becomes a Covered Entity or Business Associate, as defined in HIPAA), you cannot use this tool for any purpose or in any manner involving Protected Health Information (as defined in HIPAA).  
+
+Performance varies by use, configuration and other factors. Learn more at www.Intel.com/PerformanceIndex. Performance results are based on testing as of dates shown in configurations and may not reflect all publicly available updates. See backup for configuration details. No product or component can be absolutely secure. Intel Corporation. Intel, the Intel logo, and other Intel marks are trademarks of Intel Corporation or its subsidiaries. Other names and brands may be claimed as the property of others.
+                """)
 
     segment_btn.click(fn=segment_tumor, 
                       inputs=[input_img, 
